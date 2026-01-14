@@ -1,0 +1,30 @@
+# Falcon Trading Platform - Host Inventory
+
+hosts:
+  falcon-control:
+    address: localhost
+    user: davdunc
+    hostname: raspberrypi
+    role: orchestration
+    storage: nvme-235gb
+    description: Control center and primary storage
+
+  falcon-db:
+    address: 192.168.1.194
+    user: ospartners
+    hostname: lake-raspbian
+    role: database
+    services:
+      - postgresql
+    description: PostgreSQL database server
+
+  falcon-compute:
+    address: 192.168.1.162
+    user: ospartners
+    hostname: raspberrypi
+    role: compute
+    services:
+      - backtest-engine
+      - selection-strategies
+      - nginx-proxy
+    description: Backtest, strategies, and web proxy

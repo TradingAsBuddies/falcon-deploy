@@ -1,0 +1,21 @@
+# Environment
+.env
+*.env.local
+
+# Secrets
+*.pem
+*.key
+credentials.json
+
+# Logs
+*.log
+
+# Backups
+backups/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store

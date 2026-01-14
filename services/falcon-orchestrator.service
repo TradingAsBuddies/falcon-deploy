@@ -1,0 +1,42 @@
+[Unit]
+Description=Falcon Strategy Orchestrator - Automated Trading System
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=falcon
+Group=falcon
+WorkingDirectory=/opt/falcon
+
+# Load environment variables
+EnvironmentFile=/opt/falcon/.env
+
+# Force unbuffered Python output for proper logging
+Environment="PYTHONUNBUFFERED=1"
+
+# Run the orchestrator
+ExecStart=/usr/bin/python3 /opt/falcon/strategy_orchestrator.py
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=falcon-orchestrator
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/falcon
+
+# Resource limits
+MemoryMax=1G
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target
