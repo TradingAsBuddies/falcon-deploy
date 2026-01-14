@@ -1,0 +1,12 @@
+[Unit]
+Description=Falcon Morning Screener Timer
+Documentation=https://github.com/TradingAsBuddies/falcon-screener
+
+[Timer]
+# Run at 4:00 AM Eastern (pre-market)
+OnCalendar=*-*-* 04:00:00 America/New_York
+Persistent=true
+RandomizedDelaySec=60
+
+[Install]
+WantedBy=timers.target

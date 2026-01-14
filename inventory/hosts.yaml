@@ -1,30 +1,64 @@
 # Falcon Trading Platform - Host Inventory
+# 3-Node Distributed Deployment
 
-hosts:
-  falcon-control:
-    address: localhost
-    user: davdunc
-    hostname: raspberrypi
-    role: orchestration
-    storage: nvme-235gb
-    description: Control center and primary storage
+all:
+  vars:
+    # Database connection (all nodes connect here)
+    db_type: postgresql
+    db_host: 192.168.1.194
+    db_port: 5432
+    db_name: falcon
+    db_user: falcon
 
-  falcon-db:
-    address: 192.168.1.194
-    user: ospartners
-    hostname: lake-raspbian
-    role: database
-    services:
-      - postgresql
-    description: PostgreSQL database server
+  hosts:
+    falcon-db:
+      ansible_host: 192.168.1.194
+      ansible_user: ospartners
+      hostname: lake-raspbian
+      role: database
+      services:
+        - postgresql
+      description: PostgreSQL database server
 
-  falcon-compute:
-    address: 192.168.1.162
-    user: ospartners
-    hostname: raspberrypi
-    role: compute
-    services:
-      - backtest-engine
-      - selection-strategies
-      - nginx-proxy
-    description: Backtest, strategies, and web proxy
+    falcon-compute:
+      ansible_host: 192.168.1.232
+      ansible_user: davdunc
+      hostname: raspberrypi
+      role: compute
+      storage: nvme-235gb
+      services:
+        - falcon-screener
+        - falcon-trader
+      packages:
+        - falcon-screener
+        - falcon-trader
+      description: Screener and trading engine (high I/O, storage)
+
+    falcon-web:
+      ansible_host: 192.168.1.162
+      ansible_user: ospartners
+      hostname: raspberrypi
+      role: web
+      services:
+        - falcon-dashboard
+        - nginx
+      packages:
+        - falcon-trader  # dashboard is part of falcon-trader
+      description: Dashboard and reverse proxy
+
+  children:
+    screener_nodes:
+      hosts:
+        falcon-compute:
+
+    trader_nodes:
+      hosts:
+        falcon-compute:
+
+    dashboard_nodes:
+      hosts:
+        falcon-web:
+
+    database_nodes:
+      hosts:
+        falcon-db:

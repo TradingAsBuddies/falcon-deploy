@@ -1,7 +1,7 @@
 [Unit]
-Description=Falcon Trading Dashboard - Web Interface and API
+Description=Falcon Trading Bot - Multi-Strategy Orchestrator
 Documentation=https://github.com/TradingAsBuddies/falcon-trader
-After=network-online.target
+After=network-online.target falcon-screener@morning.service
 Wants=network-online.target
 
 [Service]
@@ -15,28 +15,28 @@ EnvironmentFile=/etc/falcon/secrets.env
 Environment="PYTHONUNBUFFERED=1"
 Environment="FALCON_ENV=production"
 
-# Run the dashboard (pip-installed package)
-ExecStart=/opt/falcon/venv/bin/falcon-dashboard
+# Run the trader (pip-installed package)
+ExecStart=/opt/falcon/venv/bin/falcon-trader
 
 # Restart policy
 Restart=always
-RestartSec=10
+RestartSec=30
 
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=falcon-dashboard
+SyslogIdentifier=falcon-trader
 
 # Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/falcon
+ReadWritePaths=/var/lib/falcon /var/cache/falcon
 
-# Resource limits
-MemoryMax=512M
-CPUQuota=25%
+# Resource limits (trading needs more resources)
+MemoryMax=2G
+CPUQuota=75%
 
 [Install]
 WantedBy=multi-user.target
