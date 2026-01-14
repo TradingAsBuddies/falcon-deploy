@@ -1,6 +1,8 @@
 # Environment
 .env
 *.env.local
+config/*.env
+!config/*.env.example
 
 # Secrets
 *.pem
