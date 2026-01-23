@@ -1,0 +1,10 @@
+[Unit]
+Description=Falcon Backtest Sync Timer ({{ backtest_sync_time | default('12:00') }} ET daily)
+
+[Timer]
+# Run after feedback loop completes
+OnCalendar=Mon..Fri *-*-* {{ backtest_sync_time | default('12:00') }}:00 America/New_York
+Persistent=true
+
+[Install]
+WantedBy=timers.target

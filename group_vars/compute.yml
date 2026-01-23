@@ -31,3 +31,8 @@ market_data_dir: "{{ falcon_data_dir }}/market_data"
 # Enable/disable services
 enable_screener_timers: true
 enable_trader_service: true
+enable_feedback_timer: true
+
+# Feedback loop settings
+feedback_run_time: "11:30"      # Run feedback loop at 11:30 AM ET
+backtest_sync_time: "12:00"     # Sync to PostgreSQL at 12:00 PM ET

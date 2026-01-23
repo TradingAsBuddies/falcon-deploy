@@ -1,0 +1,18 @@
+---
+# falcon-feedback handlers
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart falcon-feedback timer
+  ansible.builtin.systemd:
+    name: falcon-feedback.timer
+    state: restarted
+  when: enable_feedback_timer | default(true)
+
+- name: Restart falcon-backtest-sync timer
+  ansible.builtin.systemd:
+    name: falcon-backtest-sync.timer
+    state: restarted
+  when: enable_feedback_timer | default(true)

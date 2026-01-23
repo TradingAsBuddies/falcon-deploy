@@ -1,0 +1,10 @@
+[Unit]
+Description=Falcon Feedback Loop Timer ({{ feedback_run_time | default('11:30') }} ET daily)
+
+[Timer]
+# Run after Polygon data available (~11:00 AM ET)
+OnCalendar=Mon..Fri *-*-* {{ feedback_run_time | default('11:30') }}:00 America/New_York
+Persistent=true
+
+[Install]
+WantedBy=timers.target

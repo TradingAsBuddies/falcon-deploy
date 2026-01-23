@@ -1,0 +1,97 @@
+---
+# falcon-feedback role - Daily backtest feedback loop
+
+- name: Ensure feedback results directory exists
+  ansible.builtin.file:
+    path: "{{ falcon_data_dir }}/feedback_results"
+    state: directory
+    owner: "{{ falcon_user }}"
+    group: "{{ falcon_group }}"
+    mode: "0750"
+
+- name: Ensure scripts directory exists
+  ansible.builtin.file:
+    path: /opt/falcon/scripts
+    state: directory
+    owner: "{{ falcon_user }}"
+    group: "{{ falcon_group }}"
+    mode: "0755"
+
+- name: Deploy backtest sync script
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../scripts/sync-backtests.sh"
+    dest: /opt/falcon/scripts/sync-backtests.sh
+    owner: "{{ falcon_user }}"
+    group: "{{ falcon_group }}"
+    mode: "0755"
+
+- name: Deploy falcon-feedback systemd service
+  ansible.builtin.template:
+    src: falcon-feedback.service.j2
+    dest: /etc/systemd/system/falcon-feedback.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart falcon-feedback timer
+
+- name: Deploy falcon-feedback timer
+  ansible.builtin.template:
+    src: falcon-feedback.timer.j2
+    dest: /etc/systemd/system/falcon-feedback.timer
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart falcon-feedback timer
+
+- name: Deploy falcon-backtest-sync systemd service
+  ansible.builtin.template:
+    src: falcon-backtest-sync.service.j2
+    dest: /etc/systemd/system/falcon-backtest-sync.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+
+- name: Deploy falcon-backtest-sync timer
+  ansible.builtin.template:
+    src: falcon-backtest-sync.timer.j2
+    dest: /etc/systemd/system/falcon-backtest-sync.timer
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart falcon-backtest-sync timer
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable and start falcon-feedback timer
+  ansible.builtin.systemd:
+    name: falcon-feedback.timer
+    enabled: true
+    state: started
+  when: enable_feedback_timer | default(true)
+
+- name: Enable and start falcon-backtest-sync timer
+  ansible.builtin.systemd:
+    name: falcon-backtest-sync.timer
+    enabled: true
+    state: started
+  when: enable_feedback_timer | default(true)
+
+- name: Display timer status
+  ansible.builtin.command:
+    cmd: systemctl list-timers --all 'falcon-feedback*' 'falcon-backtest-sync*'
+  register: timer_status
+  changed_when: false
+
+- name: Show timer status
+  ansible.builtin.debug:
+    var: timer_status.stdout_lines
