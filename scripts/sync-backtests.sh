@@ -118,4 +118,17 @@ SQLITE_DB="$SQLITE_DB" psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d
 COUNTS=$(psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM backtest_runs;")
 log_info "Synced $COUNTS backtest runs to PostgreSQL"
 
+# Sync SQLite to falcon-web for dashboard /api/backtests/* endpoints
+FALCON_WEB_HOST="${FALCON_WEB_HOST:-falcon-api}"
+FALCON_WEB_DB_PATH="/var/lib/falcon/.local/share/falcon/backtest_results.db"
+
+if ssh -o BatchMode=yes -o ConnectTimeout=5 "$FALCON_WEB_HOST" true 2>/dev/null; then
+    log_info "Syncing SQLite to falcon-web ($FALCON_WEB_HOST)..."
+    scp -q "$SQLITE_DB" "$FALCON_WEB_HOST:/tmp/backtest_results.db" && \
+    ssh "$FALCON_WEB_HOST" "sudo mv /tmp/backtest_results.db $FALCON_WEB_DB_PATH && sudo chown falcon:falcon $FALCON_WEB_DB_PATH"
+    log_info "SQLite synced to falcon-web"
+else
+    log_info "Skipping falcon-web sync (host unreachable or no SSH key)"
+fi
+
 log_info "Sync complete"
