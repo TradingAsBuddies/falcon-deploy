@@ -1,0 +1,48 @@
+---
+# Falcon Trading Platform - Database Node Playbook
+# Installs and configures PostgreSQL on database node
+#
+# Usage:
+#   ansible-playbook playbooks/database.yml
+#   ansible-playbook playbooks/database.yml --check  # Dry run
+#
+# Required vault variables:
+#   db_password: Password for falcon database user
+
+- name: Configure Falcon Database Node
+  hosts: falcon-db
+  become: true
+
+  vars:
+    node_type: database
+
+  roles:
+    - role: postgresql
+      tags:
+        - database
+        - postgresql
+
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          Falcon Database Node deployment complete!
+
+          PostgreSQL configuration:
+            - Database: {{ db_name }}
+            - User: {{ db_user }}
+            - Port: {{ db_port }}
+            - Host: {{ ansible_host }}
+
+          Remote access configured for:
+            - 192.168.1.0/24 network
+
+          Connection string:
+            postgresql://{{ db_user }}:****@{{ ansible_host }}:{{ db_port }}/{{ db_name }}
+
+          Verification commands:
+            - sudo -u postgres psql -c "\\l"  # List databases
+            - sudo -u postgres psql -c "\\du" # List users
+            - sudo systemctl status postgresql
+      tags:
+        - always

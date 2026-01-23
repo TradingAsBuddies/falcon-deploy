@@ -1,0 +1,48 @@
+---
+# falcon-trader role - Trading orchestrator service
+
+- name: Install falcon-trader from git
+  ansible.builtin.pip:
+    name: "git+{{ falcon_trader_repo }}"
+    virtualenv: "{{ falcon_venv_path }}"
+    state: latest
+  become_user: "{{ falcon_user }}"
+  notify: Restart falcon-trader
+
+- name: Deploy falcon-trader systemd service
+  ansible.builtin.template:
+    src: falcon-trader.service.j2
+    dest: /etc/systemd/system/falcon-trader.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart falcon-trader
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable falcon-trader service
+  ansible.builtin.systemd:
+    name: falcon-trader
+    enabled: true
+  when: enable_trader_service | default(true)
+
+- name: Start falcon-trader service
+  ansible.builtin.systemd:
+    name: falcon-trader
+    state: started
+  when: enable_trader_service | default(true)
+
+- name: Display falcon-trader status
+  ansible.builtin.command:
+    cmd: systemctl status falcon-trader --no-pager
+  register: trader_status
+  changed_when: false
+  failed_when: false
+
+- name: Show trader status
+  ansible.builtin.debug:
+    var: trader_status.stdout_lines

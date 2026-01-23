@@ -1,5 +1,6 @@
 #!/bin/bash
 # Falcon Distributed Deployment Script
+# Wrapper for Ansible playbooks and manual operations
 # Deploys to all nodes defined in inventory/hosts.yaml
 
 set -e
@@ -30,18 +31,59 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 log_step() { echo -e "${BLUE}[STEP]${NC} $1"; }
 
 usage() {
-    echo "Usage: $0 <command> [node]"
+    echo "Usage: $0 <command> [node] [options]"
     echo ""
     echo "Commands:"
-    echo "  setup <node>    - Initial node setup (compute|web|db|all)"
-    echo "  deploy <node>   - Deploy/update packages (compute|web|all)"
+    echo "  setup <node>    - Full node setup via Ansible (compute|web|db|all)"
+    echo "  deploy <node>   - Deploy/update packages via Ansible (compute|web|all)"
     echo "  secrets <node>  - Copy secrets to node (compute|web|all)"
     echo "  start <node>    - Start services on node"
     echo "  stop <node>     - Stop services on node"
     echo "  status <node>   - Check service status on node"
     echo "  logs <node>     - View logs on node"
+    echo "  check <node>    - Dry-run Ansible playbook (--check mode)"
+    echo ""
+    echo "Options:"
+    echo "  --tags <tags>   - Run only specific Ansible tags"
+    echo "  --ask-vault     - Prompt for Ansible Vault password"
+    echo "  -v, -vv, -vvv   - Ansible verbosity levels"
     echo ""
     echo "Nodes: compute (192.168.1.232), web (192.168.1.162), db (192.168.1.194)"
+    echo ""
+    echo "Examples:"
+    echo "  $0 setup compute              # Full compute node setup"
+    echo "  $0 setup web --tags nginx     # Only nginx setup on web"
+    echo "  $0 check all                  # Dry-run all playbooks"
+    echo "  $0 deploy compute --ask-vault # Deploy with vault prompt"
+}
+
+# Check if Ansible is available
+check_ansible() {
+    if ! command -v ansible-playbook &> /dev/null; then
+        log_error "Ansible not found. Install with: pip install ansible"
+        exit 1
+    fi
+}
+
+# Build Ansible command with options
+run_ansible() {
+    local playbook=$1
+    shift
+    local extra_args=("$@")
+
+    check_ansible
+    cd "$DEPLOY_DIR"
+
+    log_step "Running: ansible-playbook playbooks/${playbook}.yml ${extra_args[*]}"
+    ansible-playbook "playbooks/${playbook}.yml" "${extra_args[@]}"
+}
+
+# Run command on remote host
+remote_run() {
+    local host=$1
+    local user=$2
+    shift 2
+    ssh "${user}@${host}" "$@"
 }
 
 # Copy files to remote host
@@ -53,64 +95,98 @@ remote_copy() {
     scp -r "$src" "${user}@${host}:${dest}"
 }
 
-# Run command on remote host
-remote_run() {
-    local host=$1
-    local user=$2
-    shift 2
-    ssh "${user}@${host}" "$@"
+# Ansible-based setup
+setup_node() {
+    local node=$1
+    shift
+    local extra_args=("$@")
+
+    case "$node" in
+        compute)
+            log_step "Setting up COMPUTE node via Ansible..."
+            run_ansible compute "${extra_args[@]}"
+            ;;
+        web)
+            log_step "Setting up WEB node via Ansible..."
+            run_ansible web "${extra_args[@]}"
+            ;;
+        db)
+            log_step "Setting up DATABASE node via Ansible..."
+            run_ansible database "${extra_args[@]}"
+            ;;
+        all)
+            log_step "Setting up ALL nodes via Ansible..."
+            run_ansible site "${extra_args[@]}"
+            ;;
+        *)
+            log_error "Unknown node: $node"
+            exit 1
+            ;;
+    esac
 }
 
-setup_compute() {
-    log_step "Setting up COMPUTE node ($COMPUTE_HOST)..."
+# Dry-run check
+check_node() {
+    local node=$1
+    shift
+    local extra_args=("--check" "$@")
 
-    # Copy deploy files
-    log_info "Copying deployment files..."
-    remote_run $COMPUTE_HOST $COMPUTE_USER "mkdir -p ~/falcon-deploy"
-    remote_copy $COMPUTE_HOST $COMPUTE_USER "$DEPLOY_DIR/services" "~/falcon-deploy/"
-    remote_copy $COMPUTE_HOST $COMPUTE_USER "$DEPLOY_DIR/scripts/setup-node.sh" "~/falcon-deploy/"
-
-    # Run setup
-    log_info "Running setup script..."
-    remote_run $COMPUTE_HOST $COMPUTE_USER "cd ~/falcon-deploy && chmod +x setup-node.sh && sudo ./setup-node.sh compute"
-
-    log_info "Compute node setup complete!"
+    case "$node" in
+        compute)
+            log_step "Checking COMPUTE node (dry-run)..."
+            run_ansible compute "${extra_args[@]}"
+            ;;
+        web)
+            log_step "Checking WEB node (dry-run)..."
+            run_ansible web "${extra_args[@]}"
+            ;;
+        db)
+            log_step "Checking DATABASE node (dry-run)..."
+            run_ansible database "${extra_args[@]}"
+            ;;
+        all)
+            log_step "Checking ALL nodes (dry-run)..."
+            run_ansible site "${extra_args[@]}"
+            ;;
+        *)
+            log_error "Unknown node: $node"
+            exit 1
+            ;;
+    esac
 }
 
-setup_web() {
-    log_step "Setting up WEB node ($WEB_HOST)..."
-
-    # Copy deploy files
-    log_info "Copying deployment files..."
-    remote_run $WEB_HOST $WEB_USER "mkdir -p ~/falcon-deploy"
-    remote_copy $WEB_HOST $WEB_USER "$DEPLOY_DIR/services" "~/falcon-deploy/"
-    remote_copy $WEB_HOST $WEB_USER "$DEPLOY_DIR/nginx" "~/falcon-deploy/"
-    remote_copy $WEB_HOST $WEB_USER "$DEPLOY_DIR/scripts/setup-node.sh" "~/falcon-deploy/"
-
-    # Run setup
-    log_info "Running setup script..."
-    remote_run $WEB_HOST $WEB_USER "cd ~/falcon-deploy && chmod +x setup-node.sh && sudo ./setup-node.sh web"
-
-    log_info "Web node setup complete!"
-}
-
+# Legacy: Manual secrets deployment (fallback if vault not configured)
 deploy_secrets() {
     local node=$1
 
     case "$node" in
         compute)
             log_info "Deploying secrets to compute node..."
-            remote_copy $COMPUTE_HOST $COMPUTE_USER "$DEPLOY_DIR/config/falcon-compute.env" "/tmp/secrets.env"
-            remote_run $COMPUTE_HOST $COMPUTE_USER "sudo mv /tmp/secrets.env /etc/falcon/secrets.env && sudo chmod 600 /etc/falcon/secrets.env && sudo chown falcon:falcon /etc/falcon/secrets.env"
+            if [[ -f "$DEPLOY_DIR/config/falcon-compute.env" ]]; then
+                remote_copy $COMPUTE_HOST $COMPUTE_USER "$DEPLOY_DIR/config/falcon-compute.env" "/tmp/secrets.env"
+                remote_run $COMPUTE_HOST $COMPUTE_USER "sudo mv /tmp/secrets.env /etc/falcon/secrets.env && sudo chmod 600 /etc/falcon/secrets.env && sudo chown falcon:falcon /etc/falcon/secrets.env"
+            else
+                log_error "Config file not found: config/falcon-compute.env"
+                exit 1
+            fi
             ;;
         web)
             log_info "Deploying secrets to web node..."
-            remote_copy $WEB_HOST $WEB_USER "$DEPLOY_DIR/config/falcon-web.env" "/tmp/secrets.env"
-            remote_run $WEB_HOST $WEB_USER "sudo mv /tmp/secrets.env /etc/falcon/secrets.env && sudo chmod 600 /etc/falcon/secrets.env && sudo chown falcon:falcon /etc/falcon/secrets.env"
+            if [[ -f "$DEPLOY_DIR/config/falcon-web.env" ]]; then
+                remote_copy $WEB_HOST $WEB_USER "$DEPLOY_DIR/config/falcon-web.env" "/tmp/secrets.env"
+                remote_run $WEB_HOST $WEB_USER "sudo mv /tmp/secrets.env /etc/falcon/secrets.env && sudo chmod 600 /etc/falcon/secrets.env && sudo chown falcon:falcon /etc/falcon/secrets.env"
+            else
+                log_error "Config file not found: config/falcon-web.env"
+                exit 1
+            fi
             ;;
         all)
             deploy_secrets compute
             deploy_secrets web
+            ;;
+        *)
+            log_error "Unknown node: $node"
+            exit 1
             ;;
     esac
 }
@@ -131,6 +207,10 @@ start_services() {
             start_services compute
             start_services web
             ;;
+        *)
+            log_error "Unknown node: $node"
+            exit 1
+            ;;
     esac
 }
 
@@ -150,6 +230,10 @@ stop_services() {
             stop_services compute
             stop_services web
             ;;
+        *)
+            log_error "Unknown node: $node"
+            exit 1
+            ;;
     esac
 }
 
@@ -165,10 +249,20 @@ show_status() {
             log_info "Status on web node ($WEB_HOST):"
             remote_run $WEB_HOST $WEB_USER "systemctl status falcon-dashboard nginx --no-pager" || true
             ;;
+        db)
+            log_info "Status on database node ($DB_HOST):"
+            remote_run $DB_HOST $DB_USER "systemctl status postgresql --no-pager" || true
+            ;;
         all)
             show_status compute
             echo ""
             show_status web
+            echo ""
+            show_status db
+            ;;
+        *)
+            log_error "Unknown node: $node"
+            exit 1
             ;;
     esac
 }
@@ -183,24 +277,31 @@ show_logs() {
         web)
             remote_run $WEB_HOST $WEB_USER "journalctl -u falcon-dashboard -f"
             ;;
+        db)
+            remote_run $DB_HOST $DB_USER "journalctl -u postgresql -f"
+            ;;
+        *)
+            log_error "Unknown node: $node"
+            exit 1
+            ;;
     esac
 }
 
-# Main
+# Parse arguments
 COMMAND="${1:-}"
 NODE="${2:-all}"
+shift 2 2>/dev/null || true
+EXTRA_ARGS=("$@")
 
 case "$COMMAND" in
     setup)
-        case "$NODE" in
-            compute) setup_compute ;;
-            web) setup_web ;;
-            all)
-                setup_compute
-                setup_web
-                ;;
-            *) log_error "Unknown node: $NODE"; exit 1 ;;
-        esac
+        setup_node "$NODE" "${EXTRA_ARGS[@]}"
+        ;;
+    deploy)
+        setup_node "$NODE" "${EXTRA_ARGS[@]}"
+        ;;
+    check)
+        check_node "$NODE" "${EXTRA_ARGS[@]}"
         ;;
     secrets)
         deploy_secrets "$NODE"

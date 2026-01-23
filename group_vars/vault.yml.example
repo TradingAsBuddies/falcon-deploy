@@ -1,0 +1,37 @@
+# Falcon Trading Platform - Ansible Vault Secrets Template
+# Copy this file to vault.yml and encrypt with: ansible-vault encrypt vault.yml
+#
+# Usage:
+#   cp vault.yml.example vault.yml
+#   # Edit vault.yml with your actual secrets
+#   ansible-vault encrypt vault.yml
+#
+# To edit encrypted vault:
+#   ansible-vault edit vault.yml
+#
+# To run playbooks with vault:
+#   ansible-playbook playbooks/site.yml --ask-vault-pass
+#   # Or set ANSIBLE_VAULT_PASSWORD_FILE in ansible.cfg
+
+# Enable secrets deployment in common role
+vault_secrets: true
+
+# Database password
+vault_db_password: "your_secure_database_password"
+
+# Finviz API credentials
+vault_finviz_auth_key: "your_finviz_auth_key"
+vault_finviz_screener_url: "https://elite.finviz.com/screener.ashx"
+
+# Massive (S3-compatible storage) credentials
+vault_massive_api_key: "your_massive_api_key"
+vault_massive_access_key_id: "your_access_key_id"
+vault_massive_secret_access_key: "your_secret_access_key"
+vault_massive_endpoint: "https://your-endpoint.com"
+vault_massive_bucket: "falcon-data"
+
+# Claude AI API key
+vault_claude_api_key: "sk-ant-your-claude-api-key"
+
+# Manual watchlist (comma-separated symbols)
+vault_manual_watchlist: "AAPL,MSFT,GOOGL,AMZN,NVDA"

@@ -1,0 +1,46 @@
+[Unit]
+Description=Falcon Trading Dashboard - Web Interface and API
+Documentation=https://github.com/TradingAsBuddies/falcon-trader
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ falcon_user }}
+Group={{ falcon_group }}
+WorkingDirectory={{ falcon_data_dir }}
+
+# Load environment
+EnvironmentFile={{ falcon_config_dir }}/secrets.env
+Environment="PYTHONUNBUFFERED=1"
+Environment="FALCON_ENV={{ falcon_env }}"
+
+# Run the dashboard (pip-installed package)
+ExecStart={{ falcon_venv_path }}/bin/falcon-dashboard
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=falcon-dashboard
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ falcon_data_dir }}
+
+# Resource limits
+{% if dashboard_memory_max is defined %}
+MemoryMax={{ dashboard_memory_max }}
+{% endif %}
+{% if dashboard_cpu_quota is defined %}
+CPUQuota={{ dashboard_cpu_quota }}
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target

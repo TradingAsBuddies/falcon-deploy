@@ -1,0 +1,14 @@
+---
+# nginx handlers
+
+- name: Reload nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded
+  when: enable_nginx | default(true)
+
+- name: Restart nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: restarted
+  when: enable_nginx | default(true)

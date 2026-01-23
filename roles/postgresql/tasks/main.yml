@@ -1,0 +1,142 @@
+---
+# postgresql role - Database server setup
+
+- name: Install PostgreSQL
+  ansible.builtin.apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - python3-psycopg2
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Ensure PostgreSQL service is running
+  ansible.builtin.systemd:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: Get PostgreSQL version
+  ansible.builtin.command:
+    cmd: psql --version
+  register: pg_version_output
+  changed_when: false
+
+- name: Parse PostgreSQL major version
+  ansible.builtin.set_fact:
+    pg_version: "{{ pg_version_output.stdout | regex_search('([0-9]+)') }}"
+
+- name: Set PostgreSQL config paths
+  ansible.builtin.set_fact:
+    pg_conf_dir: "/etc/postgresql/{{ pg_version }}/main"
+    pg_data_dir: "/var/lib/postgresql/{{ pg_version }}/main"
+
+- name: Create falcon database user
+  become_user: postgres
+  community.postgresql.postgresql_user:
+    name: "{{ db_user }}"
+    password: "{{ vault_db_password }}"
+    role_attr_flags: LOGIN
+    state: present
+  when: vault_db_password is defined
+  no_log: true
+
+- name: Create falcon database
+  become_user: postgres
+  community.postgresql.postgresql_db:
+    name: "{{ db_name }}"
+    owner: "{{ db_user }}"
+    state: present
+
+- name: Grant privileges on database
+  become_user: postgres
+  community.postgresql.postgresql_privs:
+    db: "{{ db_name }}"
+    role: "{{ db_user }}"
+    type: database
+    privs: ALL
+    state: present
+
+- name: Deploy postgresql.conf
+  ansible.builtin.template:
+    src: postgresql.conf.j2
+    dest: "{{ pg_conf_dir }}/conf.d/falcon.conf"
+    owner: postgres
+    group: postgres
+    mode: "0644"
+  notify: Restart postgresql
+
+- name: Ensure conf.d directory exists
+  ansible.builtin.file:
+    path: "{{ pg_conf_dir }}/conf.d"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0755"
+
+- name: Check if include_dir is configured
+  ansible.builtin.lineinfile:
+    path: "{{ pg_conf_dir }}/postgresql.conf"
+    regexp: "^include_dir = 'conf.d'"
+    line: "include_dir = 'conf.d'"
+    state: present
+  notify: Restart postgresql
+
+- name: Configure listen_addresses
+  ansible.builtin.lineinfile:
+    path: "{{ pg_conf_dir }}/postgresql.conf"
+    regexp: "^#?listen_addresses"
+    line: "listen_addresses = '*'"
+    state: present
+  notify: Restart postgresql
+
+- name: Deploy pg_hba.conf
+  ansible.builtin.template:
+    src: pg_hba.conf.j2
+    dest: "{{ pg_conf_dir }}/pg_hba.conf"
+    owner: postgres
+    group: postgres
+    mode: "0640"
+    backup: true
+  notify: Reload postgresql
+
+- name: Set up database backup cron job
+  ansible.builtin.cron:
+    name: "Falcon database backup"
+    minute: "0"
+    hour: "3"
+    job: "pg_dump -U postgres {{ db_name }} | gzip > /var/backups/postgresql/{{ db_name }}_$(date +\\%Y\\%m\\%d).sql.gz"
+    user: postgres
+    state: present
+
+- name: Create backup directory
+  ansible.builtin.file:
+    path: /var/backups/postgresql
+    state: directory
+    owner: postgres
+    group: postgres
+    mode: "0750"
+
+- name: Display PostgreSQL status
+  ansible.builtin.command:
+    cmd: systemctl status postgresql --no-pager
+  register: pg_status
+  changed_when: false
+  failed_when: false
+
+- name: Show PostgreSQL status
+  ansible.builtin.debug:
+    var: pg_status.stdout_lines
+
+- name: Test database connection
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: psql -d {{ db_name }} -c "SELECT 1;"
+  register: db_test
+  changed_when: false
+
+- name: Show database test result
+  ansible.builtin.debug:
+    msg: "Database connection successful"
+  when: db_test.rc == 0

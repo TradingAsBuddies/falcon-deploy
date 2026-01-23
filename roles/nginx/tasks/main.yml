@@ -1,0 +1,90 @@
+---
+# nginx role - Reverse proxy with SSL
+
+- name: Install nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create SSL directory
+  ansible.builtin.file:
+    path: /etc/nginx/ssl
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Check if SSL certificate exists
+  ansible.builtin.stat:
+    path: "{{ ssl_cert_path }}"
+  register: ssl_cert
+
+- name: Generate self-signed SSL certificate
+  ansible.builtin.command:
+    cmd: >
+      openssl req -x509 -nodes -days {{ ssl_days_valid }}
+      -newkey rsa:2048
+      -keyout {{ ssl_key_path }}
+      -out {{ ssl_cert_path }}
+      -subj "/C={{ ssl_country }}/ST={{ ssl_state }}/L={{ ssl_locality }}/O={{ ssl_organization }}/CN={{ ssl_common_name }}"
+    creates: "{{ ssl_cert_path }}"
+  when:
+    - ssl_generate_self_signed | default(true)
+    - not ssl_cert.stat.exists
+  notify: Reload nginx
+
+- name: Set SSL key permissions
+  ansible.builtin.file:
+    path: "{{ ssl_key_path }}"
+    owner: root
+    group: root
+    mode: "0600"
+  when: ssl_cert.stat.exists or ssl_generate_self_signed | default(true)
+
+- name: Deploy nginx falcon.conf
+  ansible.builtin.template:
+    src: falcon.conf.j2
+    dest: /etc/nginx/sites-available/falcon
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Enable falcon site
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/falcon
+    dest: /etc/nginx/sites-enabled/falcon
+    state: link
+  notify: Reload nginx
+
+- name: Remove default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+- name: Test nginx configuration
+  ansible.builtin.command:
+    cmd: nginx -t
+  register: nginx_test
+  changed_when: false
+
+- name: Enable and start nginx
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started
+  when: enable_nginx | default(true)
+
+- name: Display nginx status
+  ansible.builtin.command:
+    cmd: systemctl status nginx --no-pager
+  register: nginx_status
+  changed_when: false
+  failed_when: false
+
+- name: Show nginx status
+  ansible.builtin.debug:
+    var: nginx_status.stdout_lines

@@ -1,0 +1,14 @@
+---
+# Falcon Trading Platform - Main Playbook
+# Deploys to all nodes (compute and web)
+#
+# Usage:
+#   ansible-playbook playbooks/site.yml
+#   ansible-playbook playbooks/site.yml --tags common
+#   ansible-playbook playbooks/site.yml --limit falcon-compute
+
+- name: Deploy Falcon Compute Node
+  import_playbook: compute.yml
+
+- name: Deploy Falcon Web Node
+  import_playbook: web.yml

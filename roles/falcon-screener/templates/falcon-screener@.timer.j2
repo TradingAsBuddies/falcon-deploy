@@ -1,0 +1,9 @@
+[Unit]
+Description={{ item.value.description }}
+
+[Timer]
+OnCalendar={{ item.value.on_calendar }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target
