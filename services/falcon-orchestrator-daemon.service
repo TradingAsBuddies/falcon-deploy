@@ -1,0 +1,52 @@
+[Unit]
+Description=Falcon Multi-Strategy Orchestrator - Continuous Trading Automation
+Documentation=file:///home/ospartners/src/falcon/ORCHESTRATOR_COMPLETE.md
+After=network.target falcon-screener.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ospartners
+Group=ospartners
+WorkingDirectory=/home/ospartners/src/falcon
+
+# Load environment variables (API keys, etc.)
+EnvironmentFile=/home/ospartners/.local/.env
+Environment="PYTHONUNBUFFERED=1"
+Environment="PYTHONIOENCODING=utf-8"
+Environment="LC_ALL=C.UTF-8"
+
+# Run the orchestrator daemon
+ExecStart=/home/ospartners/src/falcon/backtest/bin/python3 -u /home/ospartners/src/falcon/run_orchestrator.py
+
+# Restart policy - always restart if it fails
+Restart=always
+RestartSec=30
+
+# Logging to systemd journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=falcon-orchestrator-daemon
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ospartners/src/falcon
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Resource limits (prevent runaway resource usage)
+MemoryMax=1G
+CPUQuota=50%
+TasksMax=100
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
