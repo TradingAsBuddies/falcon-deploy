@@ -1,0 +1,39 @@
+# Falcon Trading Platform - PostgreSQL Configuration
+# Managed by Ansible - DO NOT EDIT MANUALLY
+# This file is included via conf.d/
+
+# Connection Settings
+max_connections = 100
+
+# Memory Settings (tuned for Raspberry Pi)
+shared_buffers = 128MB
+effective_cache_size = 384MB
+maintenance_work_mem = 64MB
+work_mem = 4MB
+
+# Write Ahead Log
+wal_buffers = 4MB
+min_wal_size = 80MB
+max_wal_size = 1GB
+
+# Query Planning
+random_page_cost = 1.1
+effective_io_concurrency = 200
+
+# Logging
+log_destination = 'stderr'
+logging_collector = on
+log_directory = 'log'
+log_filename = 'postgresql-%Y-%m-%d.log'
+log_rotation_age = 1d
+log_rotation_size = 100MB
+log_min_duration_statement = 1000
+log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d '
+
+# Locale and Formatting
+datestyle = 'iso, mdy'
+timezone = 'America/New_York'
+lc_messages = 'en_US.UTF-8'
+lc_monetary = 'en_US.UTF-8'
+lc_numeric = 'en_US.UTF-8'
+lc_time = 'en_US.UTF-8'

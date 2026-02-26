@@ -1,0 +1,56 @@
+---
+# Falcon Trading Platform - Web Node Playbook
+# Deploys falcon-dashboard and nginx to web node
+#
+# Usage:
+#   ansible-playbook playbooks/web.yml
+#   ansible-playbook playbooks/web.yml --check  # Dry run
+#   ansible-playbook playbooks/web.yml --tags dashboard
+
+- name: Configure Falcon Web Node
+  hosts: falcon-web
+  become: true
+
+  vars:
+    node_type: web
+
+  roles:
+    - role: common
+      tags:
+        - common
+        - always
+
+    - role: falcon-dashboard
+      tags:
+        - dashboard
+        - services
+
+    - role: nginx
+      tags:
+        - nginx
+        - proxy
+
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          Falcon Web Node deployment complete!
+
+          Services installed:
+            - falcon-dashboard (Flask app on port {{ flask_port }})
+            - nginx (reverse proxy with SSL)
+
+          Access URLs:
+            - https://falcon.local/
+            - https://{{ ansible_host }}/
+
+          API endpoints:
+            - https://falcon.local/api/
+            - https://falcon.local/health
+
+          Next steps:
+            1. Verify secrets: sudo cat /etc/falcon/secrets.env
+            2. Start dashboard: sudo systemctl start falcon-dashboard
+            3. Reload nginx: sudo systemctl reload nginx
+      tags:
+        - always

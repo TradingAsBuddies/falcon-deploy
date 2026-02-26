@@ -1,0 +1,63 @@
+---
+# falcon-screener role - Stock screener service with scheduled timers
+
+- name: Create market data directory
+  ansible.builtin.file:
+    path: "{{ market_data_dir }}"
+    state: directory
+    owner: "{{ falcon_user }}"
+    group: "{{ falcon_group }}"
+    mode: "0750"
+
+- name: Install falcon-screener from git
+  ansible.builtin.pip:
+    name: "git+{{ falcon_screener_repo }}"
+    virtualenv: "{{ falcon_venv_path }}"
+    state: latest
+  become_user: "{{ falcon_user }}"
+  notify: Restart falcon-screener timers
+
+- name: Deploy falcon-screener systemd service template
+  ansible.builtin.template:
+    src: falcon-screener@.service.j2
+    dest: /etc/systemd/system/falcon-screener@.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart falcon-screener timers
+
+- name: Deploy falcon-screener timer units
+  ansible.builtin.template:
+    src: falcon-screener@.timer.j2
+    dest: "/etc/systemd/system/falcon-screener@{{ item.key }}.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ screener_schedules | dict2items }}"
+  notify:
+    - Reload systemd
+    - Restart falcon-screener timers
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable falcon-screener timers
+  ansible.builtin.systemd:
+    name: "falcon-screener@{{ item.key }}.timer"
+    enabled: true
+    state: started
+  loop: "{{ screener_schedules | dict2items }}"
+  when: enable_screener_timers | default(true)
+
+- name: Display screener timer status
+  ansible.builtin.command:
+    cmd: systemctl list-timers --all 'falcon-screener@*'
+  register: timer_status
+  changed_when: false
+
+- name: Show timer status
+  ansible.builtin.debug:
+    var: timer_status.stdout_lines

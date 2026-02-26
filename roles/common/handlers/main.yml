@@ -1,0 +1,11 @@
+---
+# Common handlers
+
+- name: Restart falcon services
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen: "Restart falcon services"
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true

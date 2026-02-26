@@ -1,0 +1,35 @@
+# Falcon Trading Platform - Shared Variables
+# All nodes inherit these variables
+
+# Database connection settings
+db_type: postgresql
+db_host: 192.168.1.194
+db_port: 5432
+db_name: falcon
+db_user: falcon
+# db_password is stored in Ansible Vault - see vault.yml
+
+# FHS-compliant paths
+falcon_install_dir: /opt/falcon
+falcon_venv_path: /opt/falcon/venv
+falcon_data_dir: /var/lib/falcon
+falcon_cache_dir: /var/cache/falcon
+falcon_log_dir: /var/log/falcon
+falcon_config_dir: /etc/falcon
+
+# Service user
+falcon_user: falcon
+falcon_group: falcon
+
+# Python version
+python_version: python3
+
+# Environment
+falcon_env: production
+
+# Git repositories
+falcon_screener_repo: https://github.com/TradingAsBuddies/falcon-screener.git
+falcon_trader_repo: https://github.com/TradingAsBuddies/falcon-trader.git
+
+# Systemd common settings
+systemd_restart_sec: 30

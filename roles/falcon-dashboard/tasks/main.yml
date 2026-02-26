@@ -1,0 +1,68 @@
+---
+# falcon-dashboard role - Flask web dashboard service
+
+- name: Create static files directory
+  ansible.builtin.file:
+    path: "{{ static_files_dir }}"
+    state: directory
+    owner: "{{ falcon_user }}"
+    group: "{{ falcon_group }}"
+    mode: "0755"
+
+- name: Install falcon-trader (includes dashboard) from git
+  ansible.builtin.pip:
+    name: "git+{{ falcon_trader_repo }}"
+    virtualenv: "{{ falcon_venv_path }}"
+    state: latest
+  become_user: "{{ falcon_user }}"
+  notify: Restart falcon-dashboard
+
+- name: Deploy falcon-dashboard systemd service
+  ansible.builtin.template:
+    src: falcon-dashboard.service.j2
+    dest: /etc/systemd/system/falcon-dashboard.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart falcon-dashboard
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enable falcon-dashboard service
+  ansible.builtin.systemd:
+    name: falcon-dashboard
+    enabled: true
+  when: enable_dashboard_service | default(true)
+
+- name: Start falcon-dashboard service
+  ansible.builtin.systemd:
+    name: falcon-dashboard
+    state: started
+  when: enable_dashboard_service | default(true)
+
+- name: Wait for dashboard to be ready
+  ansible.builtin.uri:
+    url: "http://{{ flask_host }}:{{ flask_port }}/health"
+    method: GET
+    status_code: 200
+  register: dashboard_health
+  until: dashboard_health.status == 200
+  retries: 10
+  delay: 3
+  when: enable_dashboard_service | default(true)
+  ignore_errors: true
+
+- name: Display falcon-dashboard status
+  ansible.builtin.command:
+    cmd: systemctl status falcon-dashboard --no-pager
+  register: dashboard_status
+  changed_when: false
+  failed_when: false
+
+- name: Show dashboard status
+  ansible.builtin.debug:
+    var: dashboard_status.stdout_lines

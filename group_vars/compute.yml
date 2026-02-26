@@ -1,0 +1,38 @@
+# Falcon Compute Node Variables
+# Host: falcon-compute (192.168.1.232)
+
+# Packages to install from git
+compute_packages:
+  - "{{ falcon_screener_repo }}"
+  - "{{ falcon_trader_repo }}"
+
+# Screener schedule times (America/New_York timezone)
+screener_schedules:
+  morning:
+    description: "Falcon Morning Screener (4:00 AM ET)"
+    on_calendar: "*-*-* 04:00:00 America/New_York"
+  midday:
+    description: "Falcon Midday Screener (10:00 AM ET)"
+    on_calendar: "*-*-* 10:00:00 America/New_York"
+  evening:
+    description: "Falcon Evening Screener (7:00 PM ET)"
+    on_calendar: "*-*-* 19:00:00 America/New_York"
+
+# Resource limits for services
+trader_memory_max: 2G
+trader_cpu_quota: 75%
+
+screener_memory_max: 1G
+screener_cpu_quota: 50%
+
+# Market data storage
+market_data_dir: "{{ falcon_data_dir }}/market_data"
+
+# Enable/disable services
+enable_screener_timers: true
+enable_trader_service: true
+enable_feedback_timer: true
+
+# Feedback loop settings
+feedback_run_time: "11:30"      # Run feedback loop at 11:30 AM ET
+backtest_sync_time: "12:00"     # Sync to PostgreSQL at 12:00 PM ET

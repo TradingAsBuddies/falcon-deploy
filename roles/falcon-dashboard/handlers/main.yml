@@ -1,0 +1,12 @@
+---
+# falcon-dashboard handlers
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart falcon-dashboard
+  ansible.builtin.systemd:
+    name: falcon-dashboard
+    state: restarted
+  when: enable_dashboard_service | default(true)

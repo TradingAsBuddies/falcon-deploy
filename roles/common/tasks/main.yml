@@ -1,0 +1,86 @@
+---
+# Common role - Shared setup for all Falcon nodes
+# Creates user, directories, and Python virtual environment
+
+- name: Ensure falcon group exists
+  ansible.builtin.group:
+    name: "{{ falcon_group }}"
+    system: true
+    state: present
+
+- name: Ensure falcon user exists
+  ansible.builtin.user:
+    name: "{{ falcon_user }}"
+    group: "{{ falcon_group }}"
+    system: true
+    shell: /bin/false
+    home: "{{ falcon_data_dir }}"
+    create_home: false
+    state: present
+
+- name: Create FHS-compliant directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default(falcon_user) }}"
+    group: "{{ item.group | default(falcon_group) }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ falcon_install_dir }}", mode: "0755", owner: root, group: root }
+    - { path: "{{ falcon_data_dir }}", mode: "0750" }
+    - { path: "{{ falcon_cache_dir }}", mode: "0750" }
+    - { path: "{{ falcon_log_dir }}", mode: "0750" }
+    - { path: "{{ falcon_config_dir }}", mode: "0755", owner: root, group: root }
+
+- name: Install Python and pip
+  ansible.builtin.apt:
+    name:
+      - python3
+      - python3-pip
+      - python3-venv
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create Python virtual environment
+  ansible.builtin.command:
+    cmd: "{{ python_version }} -m venv {{ falcon_venv_path }}"
+    creates: "{{ falcon_venv_path }}/bin/activate"
+
+- name: Set ownership of virtual environment
+  ansible.builtin.file:
+    path: "{{ falcon_install_dir }}"
+    state: directory
+    owner: "{{ falcon_user }}"
+    group: "{{ falcon_group }}"
+    recurse: true
+
+- name: Upgrade pip in virtual environment
+  ansible.builtin.pip:
+    name: pip
+    state: latest
+    virtualenv: "{{ falcon_venv_path }}"
+  become_user: "{{ falcon_user }}"
+
+- name: Deploy secrets.env from vault
+  ansible.builtin.template:
+    src: secrets.env.j2
+    dest: "{{ falcon_config_dir }}/secrets.env"
+    owner: "{{ falcon_user }}"
+    group: "{{ falcon_group }}"
+    mode: "0600"
+  notify: Restart falcon services
+  when: vault_secrets is defined
+  no_log: true
+
+- name: Check if secrets.env exists
+  ansible.builtin.stat:
+    path: "{{ falcon_config_dir }}/secrets.env"
+  register: secrets_file
+
+- name: Warn if secrets.env is missing
+  ansible.builtin.debug:
+    msg: |
+      WARNING: secrets.env not found at {{ falcon_config_dir }}/secrets.env
+      Please deploy secrets manually or define vault_secrets variable.
+  when: not secrets_file.stat.exists

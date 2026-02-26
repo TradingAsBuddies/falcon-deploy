@@ -1,0 +1,37 @@
+[Unit]
+Description=Falcon Feedback Loop - Daily Backtest Analysis
+Documentation=https://github.com/TradingAsBuddies/falcon-core
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ falcon_user }}
+Group={{ falcon_group }}
+WorkingDirectory={{ falcon_data_dir }}
+
+# Load environment
+EnvironmentFile={{ falcon_config_dir }}/secrets.env
+Environment="PYTHONUNBUFFERED=1"
+Environment="FALCON_ENV={{ falcon_env }}"
+
+# Run the feedback loop for previous trading day
+ExecStart={{ falcon_venv_path }}/bin/python -m falcon_core.backtesting.scheduler --run-now
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=falcon-feedback
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths={{ falcon_data_dir }} {{ falcon_cache_dir }}
+
+# Resource limits
+MemoryMax=2G
+CPUQuota=100%
+
+[Install]
+WantedBy=multi-user.target

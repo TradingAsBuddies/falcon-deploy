@@ -1,0 +1,34 @@
+# Environment
+.env
+*.env.local
+config/*.env
+!config/*.env.example
+
+# Secrets
+*.pem
+*.key
+credentials.json
+
+# Ansible Vault
+group_vars/vault.yml
+!group_vars/vault.yml.example
+*.vault
+.vault_pass
+~/.ansible/vault_password
+
+# Ansible artifacts
+*.retry
+/tmp/ansible_facts_cache/
+
+# Logs
+*.log
+
+# Backups
+backups/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store

@@ -1,0 +1,46 @@
+# Falcon Web Node Variables
+# Host: falcon-web (192.168.1.162)
+
+# Packages to install from git
+web_packages:
+  - "{{ falcon_trader_repo }}"
+
+# Flask dashboard settings
+flask_host: "127.0.0.1"
+flask_port: 5000
+
+# Resource limits for dashboard
+dashboard_memory_max: 512M
+dashboard_cpu_quota: 25%
+
+# Nginx settings
+nginx_server_names:
+  - falcon.local
+  - falcon.lan
+  - _
+
+nginx_upstream_keepalive: 32
+
+# SSL configuration
+ssl_cert_path: /etc/nginx/ssl/falcon.crt
+ssl_key_path: /etc/nginx/ssl/falcon.key
+ssl_generate_self_signed: true
+ssl_days_valid: 365
+ssl_country: US
+ssl_state: Virginia
+ssl_locality: Arlington
+ssl_organization: TradingAsBuddies
+ssl_common_name: falcon.local
+
+# Proxy timeouts (seconds)
+nginx_proxy_connect_timeout: 60
+nginx_proxy_send_timeout: 60
+nginx_proxy_read_timeout: 60
+nginx_api_timeout: 120
+
+# Static files
+static_files_dir: "{{ falcon_data_dir }}/www/static"
+
+# Enable/disable services
+enable_dashboard_service: true
+enable_nginx: true

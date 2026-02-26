@@ -1,0 +1,10 @@
+[Unit]
+Description=Falcon Backtest Sync Timer (after feedback loop)
+
+[Timer]
+# Run 30 minutes after feedback loop (12:00 PM ET)
+OnCalendar=Mon..Fri *-*-* 12:00:00 America/New_York
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,25 @@
+[Unit]
+Description=Falcon Backtest Results Sync to PostgreSQL
+Documentation=https://github.com/TradingAsBuddies/falcon-deploy
+After=falcon-feedback.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{ falcon_user }}
+Group={{ falcon_group }}
+WorkingDirectory={{ falcon_data_dir }}
+
+# Load environment for database credentials
+EnvironmentFile={{ falcon_config_dir }}/secrets.env
+
+# Sync SQLite backtest results to PostgreSQL
+ExecStart=/opt/falcon/scripts/sync-backtests.sh
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=falcon-backtest-sync
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+---
+# falcon-trader handlers
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart falcon-trader
+  ansible.builtin.systemd:
+    name: falcon-trader
+    state: restarted
+  when: enable_trader_service | default(true)

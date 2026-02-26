@@ -1,0 +1,65 @@
+---
+# Falcon Trading Platform - Compute Node Playbook
+# Deploys falcon-screener and falcon-trader to compute node
+#
+# Usage:
+#   ansible-playbook playbooks/compute.yml
+#   ansible-playbook playbooks/compute.yml --check  # Dry run
+#   ansible-playbook playbooks/compute.yml --tags screener
+
+- name: Configure Falcon Compute Node
+  hosts: falcon-compute
+  become: true
+
+  vars:
+    node_type: compute
+
+  roles:
+    - role: common
+      tags:
+        - common
+        - always
+
+    - role: falcon-screener
+      tags:
+        - screener
+        - services
+
+    - role: falcon-trader
+      tags:
+        - trader
+        - services
+
+    - role: falcon-feedback
+      tags:
+        - feedback
+        - backtesting
+
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          Falcon Compute Node deployment complete!
+
+          Services installed:
+            - falcon-screener (scheduled via timers)
+            - falcon-trader (continuous service)
+            - falcon-feedback (daily backtest analysis)
+            - falcon-backtest-sync (PostgreSQL sync)
+
+          Timer status:
+            - morning: {{ screener_schedules.morning.on_calendar }}
+            - midday: {{ screener_schedules.midday.on_calendar }}
+            - evening: {{ screener_schedules.evening.on_calendar }}
+
+          Feedback loop schedule:
+            - Daily at 11:30 AM ET (Mon-Fri)
+            - Sync to PostgreSQL at 12:00 PM ET
+
+          Next steps:
+            1. Verify secrets: sudo cat /etc/falcon/secrets.env
+            2. Start services: sudo systemctl start falcon-trader
+            3. Enable timers: sudo systemctl start falcon-screener@morning.timer
+            4. Check feedback timer: systemctl list-timers falcon-feedback.timer
+      tags:
+        - always

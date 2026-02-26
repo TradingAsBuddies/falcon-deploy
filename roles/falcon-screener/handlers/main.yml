@@ -1,0 +1,13 @@
+---
+# falcon-screener handlers
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart falcon-screener timers
+  ansible.builtin.systemd:
+    name: "falcon-screener@{{ item.key }}.timer"
+    state: restarted
+  loop: "{{ screener_schedules | dict2items }}"
+  when: enable_screener_timers | default(true)
