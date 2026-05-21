@@ -1,0 +1,180 @@
+# Falcon Trading Platform — Podman Desktop (Windows + WSL2 FedoraLinux-43)
+# Usage: podman-compose up -d
+# Optional profiles: --profile monitoring --profile web
+
+version: "3.9"
+
+networks:
+  falcon-net:
+    driver: bridge
+
+volumes:
+  falcon_pgdata:
+  grafana_data:
+
+services:
+
+  # ── Infrastructure ────────────────────────────────────────────────────────
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    networks:
+      - falcon-net
+    volumes:
+      - falcon_pgdata:/var/lib/postgresql/data:z
+    userns_mode: keep-id
+    environment:
+      POSTGRES_USER: falcon
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_DB: falcon
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U falcon -d falcon"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - falcon-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── Application services ──────────────────────────────────────────────────
+
+  falcon-screener:
+    build:
+      context: https://github.com/TradingAsBuddies/falcon-screener.git#main
+    restart: unless-stopped
+    networks:
+      - falcon-net
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: falcon
+      DB_USER: falcon
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+      FINVIZ_API_KEY: ${FINVIZ_API_KEY}
+
+  falcon-trader:
+    build:
+      context: https://github.com/TradingAsBuddies/falcon-trader.git#development
+    restart: unless-stopped
+    networks:
+      - falcon-net
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: falcon
+      DB_USER: falcon
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - >
+          python -c "import urllib.request;
+          urllib.request.urlopen('http://localhost:5000/api/portfolio')"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  falcon-messenger:
+    build:
+      context: https://github.com/TradingAsBuddies/falcon-messenger.git#development
+    restart: unless-stopped
+    networks:
+      - falcon-net
+    depends_on:
+      falcon-trader:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      FALCON_ENDPOINT_URL: http://falcon-trader:5000
+      FALCON_DISCORD_WEBHOOK_URL: ${FALCON_DISCORD_WEBHOOK_URL:-}
+      FALCON_BLUESKY_HANDLE: ${FALCON_BLUESKY_HANDLE:-}
+      FALCON_BLUESKY_APP_PASSWORD: ${FALCON_BLUESKY_APP_PASSWORD:-}
+      FALCON_POLL_INTERVAL: ${FALCON_POLL_INTERVAL:-300}
+
+  # ── Optional: web profile ─────────────────────────────────────────────────
+
+  falcon-signal-web:
+    build:
+      context: https://github.com/TradingAsBuddies/falcon-signal-web.git#development
+    restart: unless-stopped
+    networks:
+      - falcon-net
+    ports:
+      - "5001:5000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    profiles:
+      - web
+
+  traefik:
+    image: traefik:v3.0
+    restart: unless-stopped
+    networks:
+      - falcon-net
+    ports:
+      - "80:80"
+      - "8080:8080"
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+    volumes:
+      - ${PODMAN_SOCKET:-/run/user/1000/podman/podman.sock}:/var/run/docker.sock:ro,z
+    profiles:
+      - web
+
+  # ── Optional: monitoring profile ─────────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    networks:
+      - falcon-net
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro,z
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    networks:
+      - falcon-net
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana:z
+    userns_mode: keep-id
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
