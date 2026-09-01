@@ -14,6 +14,7 @@ An Architectural Decision Record (ADR) is a document that captures an important 
 | [0002](0002-postgresql-as-primary-database.md) | PostgreSQL as Primary Database | Accepted | 2026-01-14 |
 | [0003](0003-multi-profile-screener-system.md) | Multi-Profile Screener System | Accepted | 2026-01-14 |
 | [0004](0004-data-infrastructure-for-backtesting.md) | Data Infrastructure for Backtesting | Proposed | 2026-01-15 |
+| [0005](0005-massive-api-key-rename.md) | Rename POLYGON_API_KEY to MASSIVE_API_KEY | Accepted | 2026-09-01 |
 
 ## ADR Template
 
